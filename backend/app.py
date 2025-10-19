@@ -74,6 +74,13 @@ class ResumeParser:
             if len(first_line.split()) <= 5 and first_line[0].isupper():
                 return first_line
         return "Your Name"
+    
+    def extract_location(self):
+        """Extract location/address"""
+        location_pattern = r'\b[A-Z][a-z]+,\s*[A-Z]{2}\b'
+        match = re.search(location_pattern, self.text)
+        return match.group(0) if match else ""
+    
 
 if __name__ == '__main__':
     print("\n" + "="*50)
