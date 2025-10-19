@@ -66,6 +66,15 @@ class ResumeParser:
                 return match.group(0)
         return ""
 
+    def extract_name(self):
+        """Extract name (usually first line or first capitalized words)"""
+        if self.lines:
+            first_line = self.lines[0]
+            first_line = re.sub(r'^(Resume|CV|Curriculum Vitae)[\s:]*', '', first_line, flags=re.IGNORECASE)
+            if len(first_line.split()) <= 5 and first_line[0].isupper():
+                return first_line
+        return "Your Name"
+
 if __name__ == '__main__':
     print("\n" + "="*50)
     print("🚀 Resume Generator API Starting...")
