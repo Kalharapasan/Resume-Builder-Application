@@ -18,6 +18,18 @@ from werkzeug.utils import secure_filename
 
 
 
+app = Flask(__name__)
+CORS(app)
+
+UPLOAD_FOLDER = 'uploads'
+ALLOWED_EXTENSIONS = {'doc', 'docx'}
+MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
+
+
+
 if __name__ == '__main__':
     print("\n" + "="*50)
     print("🚀 Resume Generator API Starting...")
