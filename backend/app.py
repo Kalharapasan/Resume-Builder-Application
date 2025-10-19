@@ -38,7 +38,8 @@ except Exception as e:
     print("  Install with: python -m spacy download en_core_web_sm")
     nlp = None
     
-
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 if __name__ == '__main__':
     print("\n" + "="*50)
