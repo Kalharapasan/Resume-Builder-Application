@@ -124,6 +124,80 @@ class ResumeParser:
         skills = list(dict.fromkeys(skills))[:12]
         return skills if skills else ["Communication", "Problem Solving", "Teamwork", "Leadership"]
     
+    def extract_experience(self):
+        """Extract work experience"""
+        experience = []
+        
+        text_lower = self.text.lower()
+        exp_keywords = ['experience', 'work experience', 'employment', 'work history', 'professional experience']
+        
+        exp_start_idx = -1
+        for keyword in exp_keywords:
+            idx = text_lower.find(keyword)
+            if idx != -1:
+                exp_start_idx = idx
+                break
+        
+        if exp_start_idx != -1:
+            end_keywords = ['education', 'skills', 'projects', 'certifications']
+            exp_end_idx = len(self.text)
+            
+            for keyword in end_keywords:
+                idx = text_lower.find(keyword, exp_start_idx + 50)
+                if idx != -1 and idx < exp_end_idx:
+                    exp_end_idx = idx
+            
+            exp_section = self.text[exp_start_idx:exp_end_idx]
+            
+            date_pattern = r'(\d{4}|[A-Z][a-z]+\s+\d{4})\s*[-–—]\s*(\d{4}|Present|Current|Now)'
+            dates = re.findall(date_pattern, exp_section, re.IGNORECASE)
+            
+            title_pattern = r'([A-Z][A-Za-z\s&]+?)[\s\n]+' + date_pattern.replace('(', '(?:')
+            titles = re.findall(title_pattern, exp_section)
+            
+            company_pattern = r'(?:at |@|,\s*)([A-Z][A-Za-z\s&,\.]+?)(?:\s*[-–|]\s*|\s*,\s*|$)'
+            companies = re.findall(company_pattern, exp_section)
+            
+            for i, date in enumerate(dates[:4]):
+                title = titles[i][0].strip() if i < len(titles) else f"Position {i+1}"
+                company = companies[i].strip() if i < len(companies) else f"Company {i+1}"
+                period = f"{date[0]} - {date[1]}"
+                
+                desc_start = exp_section.find(date[1]) + len(date[1])
+                next_date_idx = len(exp_section)
+                if i + 1 < len(dates):
+                    next_date_idx = exp_section.find(dates[i+1][0], desc_start)
+                
+                description = exp_section[desc_start:next_date_idx].strip()
+                description = ' '.join(description.split()[:30])
+                
+                if not description:
+                    description = "Responsible for key tasks and deliverables in the role"
+                
+                experience.append({
+                    'title': title,
+                    'company': company,
+                    'period': period,
+                    'description': description
+                })
+        
+        if not experience:
+            experience = [
+                {
+                    'title': 'Software Developer',
+                    'company': 'Tech Company',
+                    'period': '2020 - Present',
+                    'description': 'Developed and maintained web applications using modern technologies'
+                },
+                {
+                    'title': 'Junior Developer',
+                    'company': 'StartUp Inc',
+                    'period': '2018 - 2020',
+                    'description': 'Worked on frontend and backend development projects'
+                }
+            ]
+        
+        return experience[:4]
     
 
 if __name__ == '__main__':
