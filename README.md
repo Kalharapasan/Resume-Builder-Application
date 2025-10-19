@@ -110,6 +110,9 @@ venv\Scripts\activate
 # On Mac/Linux:
 source venv/bin/activate
 
+#Or
+.\venv\Scripts\Activate.ps1
+
 # Install dependencies
 pip install -r requirements.txt
 
