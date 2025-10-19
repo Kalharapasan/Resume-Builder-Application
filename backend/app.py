@@ -41,6 +41,10 @@ except Exception as e:
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+class ResumeParser:
+    
+
+
 if __name__ == '__main__':
     print("\n" + "="*50)
     print("🚀 Resume Generator API Starting...")
