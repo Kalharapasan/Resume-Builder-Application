@@ -534,6 +534,17 @@ def generate_pdf():
         print(f"Error generating PDF: {str(e)}")
         return jsonify({'error': f'Error generating PDF: {str(e)}'}), 500
 
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'message': 'Resume Generator API is running',
+        'spacy_loaded': nlp is not None,
+        'timestamp': datetime.now().isoformat()
+    })
+
+
 
 
 if __name__ == '__main__':
