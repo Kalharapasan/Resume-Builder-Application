@@ -499,6 +499,41 @@ def upload_document():
         print(f"Error processing document: {str(e)}")
         return jsonify({'error': f'Error processing document: {str(e)}'}), 500
 
+@app.route('/api/generate-pdf', methods=['POST'])
+def generate_pdf():
+    """Generate PDF resume from parsed data"""
+    
+    data = request.json
+    resume_data = data.get('resumeData')
+    template = data.get('template', 'modern')
+    
+    if not resume_data:
+        return jsonify({'error': 'No resume data provided'}), 400
+    
+    try:
+        buffer = io.BytesIO()
+        
+        if template == 'professional':
+            PDFGenerator.create_professional_template(buffer, resume_data)
+        else:
+            PDFGenerator.create_modern_template(buffer, resume_data)
+        
+        buffer.seek(0)
+        
+        name = resume_data.get('name', 'Resume').replace(' ', '_')
+        filename = f"{name}_{datetime.now().strftime('%Y%m%d')}.pdf"
+        
+        return send_file(
+            buffer,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=filename
+        )
+    
+    except Exception as e:
+        print(f"Error generating PDF: {str(e)}")
+        return jsonify({'error': f'Error generating PDF: {str(e)}'}), 500
+
 
 
 if __name__ == '__main__':
