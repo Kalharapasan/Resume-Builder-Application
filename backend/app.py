@@ -457,7 +457,49 @@ class PDFGenerator:
         
         doc.build(story)
         return buffer
+
+@app.route('/api/upload', methods=['POST'])
+def upload_document():
+    """Handle document upload and parsing"""
     
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'Only .doc and .docx files are supported'}), 400
+    
+    try:
+        doc = Document(file)
+        text = '\n'.join([paragraph.text for paragraph in doc.paragraphs if paragraph.text.strip()])
+        
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell.text.strip():
+                        text += '\n' + cell.text
+        
+        if not text.strip():
+            return jsonify({'error': 'Document appears to be empty'}), 400
+        
+        parser = ResumeParser(text)
+        parsed_data = parser.parse()
+        
+        return jsonify({
+            'success': True,
+            'data': parsed_data,
+            'raw_text': text[:500]
+        })
+    
+    except Exception as e:
+        print(f"Error processing document: {str(e)}")
+        return jsonify({'error': f'Error processing document: {str(e)}'}), 500
+
+
 
 if __name__ == '__main__':
     print("\n" + "="*50)
