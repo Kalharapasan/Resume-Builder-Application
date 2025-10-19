@@ -266,6 +266,18 @@ class ResumeParser:
         
         return 'Experienced professional with strong technical skills and a proven track record of delivering high-quality results. Passionate about technology and committed to continuous learning and improvement.'
     
+    def parse(self):
+        """Main parsing method"""
+        return {
+            'name': self.extract_name(),
+            'email': self.extract_email(),
+            'phone': self.extract_phone(),
+            'location': self.extract_location(),
+            'summary': self.extract_summary(),
+            'skills': self.extract_skills(),
+            'experience': self.extract_experience(),
+            'education': self.extract_education()
+        }
     
 
 if __name__ == '__main__':
