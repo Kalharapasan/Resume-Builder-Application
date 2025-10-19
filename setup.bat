@@ -1,4 +1,3 @@
-````batch
 @echo off
 echo ================================
 echo AI Resume Generator Setup
@@ -47,4 +46,3 @@ echo   npm start
 echo.
 echo ================================
 pause
-````
