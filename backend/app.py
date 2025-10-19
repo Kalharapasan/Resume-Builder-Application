@@ -278,7 +278,8 @@ class ResumeParser:
             'experience': self.extract_experience(),
             'education': self.extract_education()
         }
-    
+
+class PDFGenerator:
 
 if __name__ == '__main__':
     print("\n" + "="*50)
