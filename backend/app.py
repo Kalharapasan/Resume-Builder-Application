@@ -30,6 +30,15 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+try:
+    nlp = spacy.load("en_core_web_sm")
+    print("✓ spaCy model loaded successfully")
+except Exception as e:
+    print(f"⚠ Warning: spaCy model not loaded: {e}")
+    print("  Install with: python -m spacy download en_core_web_sm")
+    nlp = None
+    
+
 
 if __name__ == '__main__':
     print("\n" + "="*50)
