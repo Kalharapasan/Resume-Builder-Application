@@ -545,7 +545,19 @@ def health_check():
     })
 
 
-
+@app.route('/api/test', methods=['POST'])
+def test_parsing():
+    """Test endpoint to parse sample text"""
+    data = request.json
+    text = data.get('text', '')
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    parser = ResumeParser(text)
+    result = parser.parse()
+    
+    return jsonify({'success': True, 'data': result})
 
 if __name__ == '__main__':
     print("\n" + "="*50)
