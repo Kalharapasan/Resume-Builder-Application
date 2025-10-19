@@ -1,6 +1,8 @@
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from docx import Document
+from docx.shared import Inches, Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
 import io
 import os
@@ -8,53 +10,51 @@ from datetime import datetime
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 import spacy
 from werkzeug.utils import secure_filename
-
-
+import json
 
 app = Flask(__name__)
 CORS(app)
 
+# Configuration
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'doc', 'docx'}
-MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB
+MAX_FILE_SIZE = 16 * 1024 * 1024
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Load spaCy model
 try:
     nlp = spacy.load("en_core_web_sm")
     print("✓ spaCy model loaded successfully")
 except Exception as e:
     print(f"⚠ Warning: spaCy model not loaded: {e}")
-    print("  Install with: python -m spacy download en_core_web_sm")
     nlp = None
-    
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-class ResumeParser:
+
+class EnhancedResumeParser:
+    """Enhanced resume parser with improved accuracy"""
+    
     def __init__(self, text):
         self.text = text
         self.lines = [line.strip() for line in text.split('\n') if line.strip()]
         
-        
     def extract_email(self):
-        """Extract email address from text"""
         email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
         matches = re.findall(email_pattern, self.text)
         return matches[0] if matches else ""
     
     def extract_phone(self):
-        """Extract phone number from text"""
         phone_patterns = [
             r'\+?1?\s*\(?(\d{3})\)?[\s.-]?(\d{3})[\s.-]?(\d{4})',
             r'\+?\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{4}',
@@ -65,9 +65,8 @@ class ResumeParser:
             if match:
                 return match.group(0)
         return ""
-
+    
     def extract_name(self):
-        """Extract name (usually first line or first capitalized words)"""
         if self.lines:
             first_line = self.lines[0]
             first_line = re.sub(r'^(Resume|CV|Curriculum Vitae)[\s:]*', '', first_line, flags=re.IGNORECASE)
@@ -75,59 +74,63 @@ class ResumeParser:
                 return first_line
         return "Your Name"
     
-    def extract_location(self):
-        """Extract location/address"""
-        location_pattern = r'\b[A-Z][a-z]+,\s*[A-Z]{2}\b'
-        match = re.search(location_pattern, self.text)
+    def extract_linkedin(self):
+        """Extract LinkedIn profile URL"""
+        linkedin_pattern = r'(?:https?://)?(?:www\.)?linkedin\.com/in/[\w-]+'
+        match = re.search(linkedin_pattern, self.text, re.IGNORECASE)
         return match.group(0) if match else ""
     
+    def extract_location(self):
+        location_patterns = [
+            r'\b[A-Z][a-z]+,\s*[A-Z]{2}\b',
+            r'\b[A-Z][a-z]+,\s*[A-Z][a-z]+\b'
+        ]
+        for pattern in location_patterns:
+            match = re.search(pattern, self.text)
+            if match:
+                return match.group(0)
+        return ""
+    
     def extract_skills(self):
-        """Extract technical and soft skills"""
         skills = []
-        
         tech_skills = [
             'Python', 'Java', 'JavaScript', 'TypeScript', 'React', 'Angular', 'Vue',
             'Node.js', 'Express', 'Django', 'Flask', 'FastAPI', 'Spring Boot',
             'SQL', 'MySQL', 'PostgreSQL', 'MongoDB', 'Redis', 'Elasticsearch',
             'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes', 'Jenkins', 'Git',
-            'HTML', 'CSS', 'SCSS', 'Tailwind', 'Bootstrap', 'REST API', 'GraphQL',
-            'Machine Learning', 'AI', 'Data Science', 'TensorFlow', 'PyTorch',
+            'HTML', 'CSS', 'SCSS', 'Tailwind', 'Bootstrap', 'Material-UI',
+            'REST API', 'GraphQL', 'gRPC', 'WebSocket',
+            'Machine Learning', 'Deep Learning', 'AI', 'Data Science', 
+            'TensorFlow', 'PyTorch', 'Scikit-learn', 'Pandas', 'NumPy',
             'C++', 'C#', 'Ruby', 'PHP', 'Swift', 'Kotlin', 'Go', 'Rust',
-            'Agile', 'Scrum', 'DevOps', 'CI/CD', 'Microservices', 'Linux'
+            'Agile', 'Scrum', 'DevOps', 'CI/CD', 'Microservices', 'Linux',
+            'Firebase', 'Supabase', 'Next.js', 'Svelte', 'Remix'
         ]
         
         text_lower = self.text.lower()
-        skills_keywords = ['skills', 'technical skills', 'competencies', 'expertise', 'technologies']
+        skills_keywords = ['skills', 'technical skills', 'competencies', 'expertise', 'technologies', 'tools']
         
         for keyword in skills_keywords:
             idx = text_lower.find(keyword)
             if idx != -1:
-                skills_section = self.text[idx:idx+500]
+                skills_section = self.text[idx:idx+600]
                 for skill in tech_skills:
                     if re.search(r'\b' + re.escape(skill) + r'\b', skills_section, re.IGNORECASE):
-                        skills.append(skill)
+                        if skill not in skills:
+                            skills.append(skill)
                 break
         
         if not skills:
-            for skill in tech_skills[:15]:
+            for skill in tech_skills[:20]:
                 if re.search(r'\b' + re.escape(skill) + r'\b', self.text, re.IGNORECASE):
-                    skills.append(skill)
+                    if skill not in skills:
+                        skills.append(skill)
         
-        if nlp and len(skills) < 5:
-            doc = nlp(self.text[:1500])
-            for chunk in doc.noun_chunks:
-                chunk_text = chunk.text.strip()
-                if 2 <= len(chunk_text.split()) <= 3 and chunk_text[0].isupper():
-                    if chunk_text not in skills and len(skills) < 12:
-                        skills.append(chunk_text)
-        
-        skills = list(dict.fromkeys(skills))[:12]
+        skills = list(dict.fromkeys(skills))[:15]
         return skills if skills else ["Communication", "Problem Solving", "Teamwork", "Leadership"]
     
     def extract_experience(self):
-        """Extract work experience"""
         experience = []
-        
         text_lower = self.text.lower()
         exp_keywords = ['experience', 'work experience', 'employment', 'work history', 'professional experience']
         
@@ -148,38 +151,30 @@ class ResumeParser:
                     exp_end_idx = idx
             
             exp_section = self.text[exp_start_idx:exp_end_idx]
-            
             date_pattern = r'(\d{4}|[A-Z][a-z]+\s+\d{4})\s*[-–—]\s*(\d{4}|Present|Current|Now)'
             dates = re.findall(date_pattern, exp_section, re.IGNORECASE)
             
-            title_pattern = r'([A-Z][A-Za-z\s&]+?)[\s\n]+' + date_pattern.replace('(', '(?:')
-            titles = re.findall(title_pattern, exp_section)
-            
-            company_pattern = r'(?:at |@|,\s*)([A-Z][A-Za-z\s&,\.]+?)(?:\s*[-–|]\s*|\s*,\s*|$)'
-            companies = re.findall(company_pattern, exp_section)
-            
-            for i, date in enumerate(dates[:4]):
-                title = titles[i][0].strip() if i < len(titles) else f"Position {i+1}"
-                company = companies[i].strip() if i < len(companies) else f"Company {i+1}"
-                period = f"{date[0]} - {date[1]}"
-                
-                desc_start = exp_section.find(date[1]) + len(date[1])
-                next_date_idx = len(exp_section)
-                if i + 1 < len(dates):
-                    next_date_idx = exp_section.find(dates[i+1][0], desc_start)
-                
-                description = exp_section[desc_start:next_date_idx].strip()
-                description = ' '.join(description.split()[:30])
-                
-                if not description:
-                    description = "Responsible for key tasks and deliverables in the role"
-                
-                experience.append({
-                    'title': title,
-                    'company': company,
-                    'period': period,
-                    'description': description
-                })
+            if dates:
+                for i, date in enumerate(dates[:4]):
+                    lines_around_date = exp_section.split('\n')
+                    title = f"Position {i+1}"
+                    company = f"Company {i+1}"
+                    
+                    for line in lines_around_date:
+                        if date[0] in line:
+                            idx = lines_around_date.index(line)
+                            if idx > 0:
+                                title = lines_around_date[idx-1].strip()
+                            if idx > 1:
+                                company = lines_around_date[idx-2].strip()
+                            break
+                    
+                    experience.append({
+                        'title': title[:100],
+                        'company': company[:100],
+                        'period': f"{date[0]} - {date[1]}",
+                        'description': 'Responsible for key tasks and deliverables in the role'
+                    })
         
         if not experience:
             experience = [
@@ -188,21 +183,13 @@ class ResumeParser:
                     'company': 'Tech Company',
                     'period': '2020 - Present',
                     'description': 'Developed and maintained web applications using modern technologies'
-                },
-                {
-                    'title': 'Junior Developer',
-                    'company': 'StartUp Inc',
-                    'period': '2018 - 2020',
-                    'description': 'Worked on frontend and backend development projects'
                 }
             ]
         
         return experience[:4]
-
+    
     def extract_education(self):
-        """Extract education details"""
         education = []
-        
         text_lower = self.text.lower()
         edu_keywords = ['education', 'academic', 'qualification', 'degree']
         
@@ -217,7 +204,7 @@ class ResumeParser:
             edu_section = self.text[edu_start_idx:edu_start_idx+600]
             
             degree_patterns = [
-                r'(Bachelor|Master|PhD|B\.?S\.?|M\.?S\.?|B\.?A\.?|M\.?A\.?|B\.?Tech|M\.?Tech|MBA|BBA|BCA|MCA)[\s\w\.,\(\)]*',
+                r'(Bachelor|Master|PhD|Doctorate|B\.?S\.?|M\.?S\.?|B\.?A\.?|M\.?A\.?|B\.?Tech|M\.?Tech|MBA|BBA|BCA|MCA)[\s\w\.,\(\)]*',
                 r'(Diploma|Certificate|Associate)[\s\w]*'
             ]
             
@@ -249,8 +236,7 @@ class ResumeParser:
         return education
     
     def extract_summary(self):
-        """Extract professional summary"""
-        summary_keywords = ['summary', 'objective', 'profile', 'about', 'professional summary']
+        summary_keywords = ['summary', 'objective', 'profile', 'about', 'professional summary', 'overview']
         text_lower = self.text.lower()
         
         for keyword in summary_keywords:
@@ -261,63 +247,68 @@ class ResumeParser:
                 sentences = re.split(r'[.!?]\s+', summary_section)
                 valid_sentences = [s.strip() for s in sentences if len(s.split()) > 5]
                 if valid_sentences:
-                    summary = '. '.join(valid_sentences[:2]) + '.'
-                    return summary[:300]
+                    summary = '. '.join(valid_sentences[:3]) + '.'
+                    return summary[:400]
         
-        return 'Experienced professional with strong technical skills and a proven track record of delivering high-quality results. Passionate about technology and committed to continuous learning and improvement.'
+        return 'Experienced professional with strong technical skills and a proven track record of delivering high-quality results.'
+    
+    def calculate_score(self, data):
+        """Calculate resume completeness score"""
+        score = 0
+        max_score = 100
+        
+        if data.get('name') and data['name'] != 'Your Name':
+            score += 10
+        if data.get('email'):
+            score += 15
+        if data.get('phone'):
+            score += 10
+        if data.get('summary') and len(data['summary']) > 50:
+            score += 15
+        if data.get('skills') and len(data['skills']) >= 5:
+            score += 20
+        if data.get('experience') and len(data['experience']) >= 1:
+            score += 20
+        if data.get('education') and len(data['education']) >= 1:
+            score += 10
+        
+        return min(score, max_score)
     
     def parse(self):
-        """Main parsing method"""
-        return {
+        data = {
             'name': self.extract_name(),
             'email': self.extract_email(),
             'phone': self.extract_phone(),
+            'linkedin': self.extract_linkedin(),
             'location': self.extract_location(),
             'summary': self.extract_summary(),
             'skills': self.extract_skills(),
             'experience': self.extract_experience(),
             'education': self.extract_education()
         }
+        
+        data['score'] = self.calculate_score(data)
+        return data
 
-class PDFGenerator:
+
+class EnhancedPDFGenerator:
+    """Enhanced PDF generator with new templates"""
+    
     @staticmethod
     def create_modern_template(buffer, data):
         """Modern template with blue accent"""
-        doc = SimpleDocTemplate(buffer, pagesize=letter,
-                              rightMargin=50, leftMargin=50,
-                              topMargin=50, bottomMargin=30)
-        
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=30)
         story = []
         styles = getSampleStyleSheet()
         
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=28,
-            textColor=colors.HexColor('#1e40af'),
-            spaceAfter=8,
-            spaceBefore=0,
-            alignment=TA_LEFT,
-            fontName='Helvetica-Bold'
-        )
+        title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=28,
+            textColor=colors.HexColor('#1e40af'), spaceAfter=8, fontName='Helvetica-Bold')
         
-        contact_style = ParagraphStyle(
-            'Contact',
-            parent=styles['Normal'],
-            fontSize=10,
-            textColor=colors.HexColor('#4b5563'),
-            spaceAfter=16
-        )
+        contact_style = ParagraphStyle('Contact', parent=styles['Normal'], fontSize=10,
+            textColor=colors.HexColor('#4b5563'), spaceAfter=16)
         
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=14,
-            textColor=colors.HexColor('#1e40af'),
-            spaceAfter=8,
-            spaceBefore=14,
-            fontName='Helvetica-Bold'
-        )
+        heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=14,
+            textColor=colors.HexColor('#1e40af'), spaceAfter=8, spaceBefore=14, fontName='Helvetica-Bold')
         
         story.append(Paragraph(data['name'], title_style))
         
@@ -330,8 +321,7 @@ class PDFGenerator:
             contact_parts.append(data['location'])
         
         if contact_parts:
-            contact_text = ' | '.join(contact_parts)
-            story.append(Paragraph(contact_text, contact_style))
+            story.append(Paragraph(' | '.join(contact_parts), contact_style))
         
         story.append(Spacer(1, 0.1*inch))
         
@@ -345,7 +335,6 @@ class PDFGenerator:
             for exp in data['experience']:
                 job_style = ParagraphStyle('Job', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
                 story.append(Paragraph(exp['title'], job_style))
-                
                 company_style = ParagraphStyle('Company', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4b5563'))
                 story.append(Paragraph(f"{exp['company']} | {exp['period']}", company_style))
                 story.append(Paragraph(exp['description'], styles['Normal']))
@@ -356,7 +345,6 @@ class PDFGenerator:
             for edu in data['education']:
                 degree_style = ParagraphStyle('Degree', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
                 story.append(Paragraph(edu['degree'], degree_style))
-                
                 institution_style = ParagraphStyle('Institution', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4b5563'))
                 story.append(Paragraph(f"{edu['institution']} | {edu['year']}", institution_style))
                 story.append(Spacer(1, 0.12*inch))
@@ -367,46 +355,23 @@ class PDFGenerator:
             story.append(Paragraph(skills_text, styles['Normal']))
         
         doc.build(story)
-        return 
-
+        return buffer
+    
     @staticmethod
     def create_professional_template(buffer, data):
         """Professional centered template"""
-        doc = SimpleDocTemplate(buffer, pagesize=letter,
-                              rightMargin=60, leftMargin=60,
-                              topMargin=60, bottomMargin=30)
-        
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=60, leftMargin=60, topMargin=60, bottomMargin=30)
         story = []
         styles = getSampleStyleSheet()
         
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=26,
-            textColor=colors.black,
-            spaceAfter=8,
-            alignment=TA_CENTER,
-            fontName='Helvetica-Bold'
-        )
+        title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=26,
+            textColor=colors.black, spaceAfter=8, alignment=TA_CENTER, fontName='Helvetica-Bold')
         
-        contact_style = ParagraphStyle(
-            'Contact',
-            parent=styles['Normal'],
-            fontSize=10,
-            textColor=colors.HexColor('#374151'),
-            spaceAfter=20,
-            alignment=TA_CENTER
-        )
+        contact_style = ParagraphStyle('Contact', parent=styles['Normal'], fontSize=10,
+            textColor=colors.HexColor('#374151'), spaceAfter=20, alignment=TA_CENTER)
         
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading2'],
-            fontSize=12,
-            textColor=colors.black,
-            spaceAfter=6,
-            spaceBefore=12,
-            fontName='Helvetica-Bold'
-        )
+        heading_style = ParagraphStyle('CustomHeading', parent=styles['Heading2'], fontSize=12,
+            textColor=colors.black, spaceAfter=6, spaceBefore=12, fontName='Helvetica-Bold')
         
         story.append(Paragraph(data['name'], title_style))
         
@@ -419,8 +384,7 @@ class PDFGenerator:
             contact_parts.append(data['location'])
         
         if contact_parts:
-            contact_text = ' | '.join(contact_parts)
-            story.append(Paragraph(contact_text, contact_style))
+            story.append(Paragraph(' | '.join(contact_parts), contact_style))
         
         story.append(Spacer(1, 0.1*inch))
         
@@ -434,8 +398,8 @@ class PDFGenerator:
             for exp in data['experience']:
                 job_style = ParagraphStyle('Job', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
                 story.append(Paragraph(exp['title'], job_style))
-                
-                company_style = ParagraphStyle('Company', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4b5563'), fontName='Helvetica-Oblique')
+                company_style = ParagraphStyle('Company', parent=styles['Normal'], fontSize=10,
+                    textColor=colors.HexColor('#4b5563'), fontName='Helvetica-Oblique')
                 story.append(Paragraph(f"{exp['company']} | {exp['period']}", company_style))
                 story.append(Paragraph(exp['description'], styles['Normal']))
                 story.append(Spacer(1, 0.12*inch))
@@ -445,7 +409,6 @@ class PDFGenerator:
             for edu in data['education']:
                 degree_style = ParagraphStyle('Degree', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
                 story.append(Paragraph(edu['degree'], degree_style))
-                
                 institution_style = ParagraphStyle('Institution', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4b5563'))
                 story.append(Paragraph(f"{edu['institution']} | {edu['year']}", institution_style))
                 story.append(Spacer(1, 0.12*inch))
@@ -457,11 +420,118 @@ class PDFGenerator:
         
         doc.build(story)
         return buffer
+    
+    @staticmethod
+    def create_creative_template(buffer, data):
+        """Creative template with colorful design"""
+        doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=30)
+        story = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle('CreativeTitle', parent=styles['Heading1'], fontSize=30,
+            textColor=colors.HexColor('#ec4899'), spaceAfter=8, fontName='Helvetica-Bold')
+        
+        heading_style = ParagraphStyle('CreativeHeading', parent=styles['Heading2'], fontSize=14,
+            textColor=colors.HexColor('#f97316'), spaceAfter=8, spaceBefore=14, fontName='Helvetica-Bold')
+        
+        story.append(Paragraph(data['name'], title_style))
+        
+        contact_parts = []
+        if data.get('email'):
+            contact_parts.append(data['email'])
+        if data.get('phone'):
+            contact_parts.append(data['phone'])
+        
+        if contact_parts:
+            story.append(Paragraph(' | '.join(contact_parts), styles['Normal']))
+        
+        story.append(Spacer(1, 0.1*inch))
+        
+        if data.get('summary'):
+            story.append(Paragraph('ABOUT ME', heading_style))
+            story.append(Paragraph(data['summary'], styles['Normal']))
+            story.append(Spacer(1, 0.15*inch))
+        
+        if data.get('skills'):
+            story.append(Paragraph('EXPERTISE', heading_style))
+            skills_text = ' • '.join(data['skills'])
+            story.append(Paragraph(skills_text, styles['Normal']))
+            story.append(Spacer(1, 0.15*inch))
+        
+        if data.get('experience'):
+            story.append(Paragraph('EXPERIENCE', heading_style))
+            for exp in data['experience']:
+                story.append(Paragraph(f"<b>{exp['title']}</b>", styles['Normal']))
+                story.append(Paragraph(f"{exp['company']} | {exp['period']}", styles['Normal']))
+                story.append(Paragraph(exp['description'], styles['Normal']))
+                story.append(Spacer(1, 0.12*inch))
+        
+        if data.get('education'):
+            story.append(Paragraph('EDUCATION', heading_style))
+            for edu in data['education']:
+                story.append(Paragraph(f"<b>{edu['degree']}</b>", styles['Normal']))
+                story.append(Paragraph(f"{edu['institution']} | {edu['year']}", styles['Normal']))
+                story.append(Spacer(1, 0.12*inch))
+        
+        doc.build(story)
+        return buffer
+
+
+class DocxGenerator:
+    """Generate DOCX resumes"""
+    
+    @staticmethod
+    def create_docx(data):
+        doc = Document()
+        
+        # Title
+        title = doc.add_heading(data['name'], 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Contact info
+        contact_parts = []
+        if data.get('email'):
+            contact_parts.append(data['email'])
+        if data.get('phone'):
+            contact_parts.append(data['phone'])
+        if data.get('location'):
+            contact_parts.append(data['location'])
+        
+        if contact_parts:
+            p = doc.add_paragraph(' | '.join(contact_parts))
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Summary
+        if data.get('summary'):
+            doc.add_heading('Professional Summary', 1)
+            doc.add_paragraph(data['summary'])
+        
+        # Skills
+        if data.get('skills'):
+            doc.add_heading('Skills', 1)
+            doc.add_paragraph(' • '.join(data['skills']))
+        
+        # Experience
+        if data.get('experience'):
+            doc.add_heading('Work Experience', 1)
+            for exp in data['experience']:
+                doc.add_heading(exp['title'], 2)
+                doc.add_paragraph(f"{exp['company']} | {exp['period']}")
+                doc.add_paragraph(exp['description'])
+        
+        # Education
+        if data.get('education'):
+            doc.add_heading('Education', 1)
+            for edu in data['education']:
+                doc.add_heading(edu['degree'], 2)
+                doc.add_paragraph(f"{edu['institution']} | {edu['year']}")
+        
+        return doc
+
 
 @app.route('/api/upload', methods=['POST'])
 def upload_document():
     """Handle document upload and parsing"""
-    
     if 'file' not in request.files:
         return jsonify({'error': 'No file provided'}), 400
     
@@ -486,7 +556,7 @@ def upload_document():
         if not text.strip():
             return jsonify({'error': 'Document appears to be empty'}), 400
         
-        parser = ResumeParser(text)
+        parser = EnhancedResumeParser(text)
         parsed_data = parser.parse()
         
         return jsonify({
@@ -499,10 +569,21 @@ def upload_document():
         print(f"Error processing document: {str(e)}")
         return jsonify({'error': f'Error processing document: {str(e)}'}), 500
 
+
+@app.route('/api/update-data', methods=['POST'])
+def update_data():
+    """Update parsed resume data"""
+    data = request.json
+    
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    return jsonify({'success': True, 'data': data})
+
+
 @app.route('/api/generate-pdf', methods=['POST'])
 def generate_pdf():
-    """Generate PDF resume from parsed data"""
-    
+    """Generate PDF resume"""
     data = request.json
     resume_data = data.get('resumeData')
     template = data.get('template', 'modern')
@@ -514,59 +595,72 @@ def generate_pdf():
         buffer = io.BytesIO()
         
         if template == 'professional':
-            PDFGenerator.create_professional_template(buffer, resume_data)
+            EnhancedPDFGenerator.create_professional_template(buffer, resume_data)
+        elif template == 'creative':
+            EnhancedPDFGenerator.create_creative_template(buffer, resume_data)
         else:
-            PDFGenerator.create_modern_template(buffer, resume_data)
+            EnhancedPDFGenerator.create_modern_template(buffer, resume_data)
         
         buffer.seek(0)
         
         name = resume_data.get('name', 'Resume').replace(' ', '_')
         filename = f"{name}_{datetime.now().strftime('%Y%m%d')}.pdf"
         
-        return send_file(
-            buffer,
-            mimetype='application/pdf',
-            as_attachment=True,
-            download_name=filename
-        )
+        return send_file(buffer, mimetype='application/pdf', as_attachment=True, download_name=filename)
     
     except Exception as e:
         print(f"Error generating PDF: {str(e)}")
         return jsonify({'error': f'Error generating PDF: {str(e)}'}), 500
+
+
+@app.route('/api/generate-docx', methods=['POST'])
+def generate_docx():
+    """Generate DOCX resume"""
+    data = request.json
+    resume_data = data.get('resumeData')
+    
+    if not resume_data:
+        return jsonify({'error': 'No resume data provided'}), 400
+    
+    try:
+        doc = DocxGenerator.create_docx(resume_data)
+        
+        buffer = io.BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        
+        name = resume_data.get('name', 'Resume').replace(' ', '_')
+        filename = f"{name}_{datetime.now().strftime('%Y%m%d')}.docx"
+        
+        return send_file(buffer, mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        as_attachment=True, download_name=filename)
+    
+    except Exception as e:
+        print(f"Error generating DOCX: {str(e)}")
+        return jsonify({'error': f'Error generating DOCX: {str(e)}'}), 500
+
 
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
+        'version': '2.0',
         'message': 'Resume Generator API is running',
         'spacy_loaded': nlp is not None,
         'timestamp': datetime.now().isoformat()
     })
 
 
-@app.route('/api/test', methods=['POST'])
-def test_parsing():
-    """Test endpoint to parse sample text"""
-    data = request.json
-    text = data.get('text', '')
-    
-    if not text:
-        return jsonify({'error': 'No text provided'}), 400
-    
-    parser = ResumeParser(text)
-    result = parser.parse()
-    
-    return jsonify({'success': True, 'data': result})
-
 if __name__ == '__main__':
-    print("\n" + "="*50)
-    print("🚀 Resume Generator API Starting...")
-    print("="*50)
+    print("\n" + "="*60)
+    print("🚀 AI Resume Generator v2.0 - API Starting...")
+    print("="*60)
     print(f"📁 Upload folder: {UPLOAD_FOLDER}")
     print(f"🤖 spaCy loaded: {'✓ Yes' if nlp else '✗ No'}")
     print(f"🌐 Server: http://localhost:5000")
     print(f"💚 Health: http://localhost:5000/api/health")
-    print("="*50 + "\n")
+    print(f"📊 Version: 2.0 (Enhanced)")
+    print("="*60 + "\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000)
