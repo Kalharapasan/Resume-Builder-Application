@@ -367,7 +367,97 @@ class PDFGenerator:
             story.append(Paragraph(skills_text, styles['Normal']))
         
         doc.build(story)
+        return 
+
+    @staticmethod
+    def create_professional_template(buffer, data):
+        """Professional centered template"""
+        doc = SimpleDocTemplate(buffer, pagesize=letter,
+                              rightMargin=60, leftMargin=60,
+                              topMargin=60, bottomMargin=30)
+        
+        story = []
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=26,
+            textColor=colors.black,
+            spaceAfter=8,
+            alignment=TA_CENTER,
+            fontName='Helvetica-Bold'
+        )
+        
+        contact_style = ParagraphStyle(
+            'Contact',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#374151'),
+            spaceAfter=20,
+            alignment=TA_CENTER
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=12,
+            textColor=colors.black,
+            spaceAfter=6,
+            spaceBefore=12,
+            fontName='Helvetica-Bold'
+        )
+        
+        story.append(Paragraph(data['name'], title_style))
+        
+        contact_parts = []
+        if data.get('email'):
+            contact_parts.append(data['email'])
+        if data.get('phone'):
+            contact_parts.append(data['phone'])
+        if data.get('location'):
+            contact_parts.append(data['location'])
+        
+        if contact_parts:
+            contact_text = ' | '.join(contact_parts)
+            story.append(Paragraph(contact_text, contact_style))
+        
+        story.append(Spacer(1, 0.1*inch))
+        
+        if data.get('summary'):
+            story.append(Paragraph('SUMMARY', heading_style))
+            story.append(Paragraph(data['summary'], styles['Normal']))
+            story.append(Spacer(1, 0.15*inch))
+        
+        if data.get('experience'):
+            story.append(Paragraph('EXPERIENCE', heading_style))
+            for exp in data['experience']:
+                job_style = ParagraphStyle('Job', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
+                story.append(Paragraph(exp['title'], job_style))
+                
+                company_style = ParagraphStyle('Company', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4b5563'), fontName='Helvetica-Oblique')
+                story.append(Paragraph(f"{exp['company']} | {exp['period']}", company_style))
+                story.append(Paragraph(exp['description'], styles['Normal']))
+                story.append(Spacer(1, 0.12*inch))
+        
+        if data.get('education'):
+            story.append(Paragraph('EDUCATION', heading_style))
+            for edu in data['education']:
+                degree_style = ParagraphStyle('Degree', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11)
+                story.append(Paragraph(edu['degree'], degree_style))
+                
+                institution_style = ParagraphStyle('Institution', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#4b5563'))
+                story.append(Paragraph(f"{edu['institution']} | {edu['year']}", institution_style))
+                story.append(Spacer(1, 0.12*inch))
+        
+        if data.get('skills'):
+            story.append(Paragraph('SKILLS', heading_style))
+            skills_text = ' • '.join(data['skills'])
+            story.append(Paragraph(skills_text, styles['Normal']))
+        
+        doc.build(story)
         return buffer
+    
 
 if __name__ == '__main__':
     print("\n" + "="*50)
