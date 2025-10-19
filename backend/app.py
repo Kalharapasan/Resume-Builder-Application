@@ -16,3 +16,16 @@ from reportlab.pdfbase.ttfonts import TTFont
 import spacy
 from werkzeug.utils import secure_filename
 
+
+
+if __name__ == '__main__':
+    print("\n" + "="*50)
+    print("🚀 Resume Generator API Starting...")
+    print("="*50)
+    print(f"📁 Upload folder: {UPLOAD_FOLDER}")
+    print(f"🤖 spaCy loaded: {'✓ Yes' if nlp else '✗ No'}")
+    print(f"🌐 Server: http://localhost:5000")
+    print(f"💚 Health: http://localhost:5000/api/health")
+    print("="*50 + "\n")
+    
+    app.run(debug=True, host='0.0.0.0', port=5000)
