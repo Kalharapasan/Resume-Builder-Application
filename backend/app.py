@@ -47,7 +47,11 @@ class ResumeParser:
         self.lines = [line.strip() for line in text.split('\n') if line.strip()]
         
         
-    
+    def extract_email(self):
+        """Extract email address from text"""
+        email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
+        matches = re.findall(email_pattern, self.text)
+        return matches[0] if matches else ""
 
 
 if __name__ == '__main__':
