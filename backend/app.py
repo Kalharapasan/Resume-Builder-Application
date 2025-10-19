@@ -248,6 +248,25 @@ class ResumeParser:
         
         return education
     
+    def extract_summary(self):
+        """Extract professional summary"""
+        summary_keywords = ['summary', 'objective', 'profile', 'about', 'professional summary']
+        text_lower = self.text.lower()
+        
+        for keyword in summary_keywords:
+            idx = text_lower.find(keyword)
+            if idx != -1:
+                summary_start = idx + len(keyword)
+                summary_section = self.text[summary_start:summary_start+500]
+                sentences = re.split(r'[.!?]\s+', summary_section)
+                valid_sentences = [s.strip() for s in sentences if len(s.split()) > 5]
+                if valid_sentences:
+                    summary = '. '.join(valid_sentences[:2]) + '.'
+                    return summary[:300]
+        
+        return 'Experienced professional with strong technical skills and a proven track record of delivering high-quality results. Passionate about technology and committed to continuous learning and improvement.'
+    
+    
 
 if __name__ == '__main__':
     print("\n" + "="*50)
