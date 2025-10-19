@@ -4,6 +4,12 @@ import { Upload, FileText, Download, Sparkles, Loader2, CheckCircle } from 'luci
 const API_URL = 'http://localhost:5000/api';
 export default function ResumeGenerator() {
     
+    const resetApp = () => {
+        setStep(1);
+        setFile(null);
+        setParsedData(null);
+        setError('');
+    };
     
     return (
         <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-6">
