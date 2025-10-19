@@ -52,7 +52,19 @@ class ResumeParser:
         email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
         matches = re.findall(email_pattern, self.text)
         return matches[0] if matches else ""
-
+    
+    def extract_phone(self):
+        """Extract phone number from text"""
+        phone_patterns = [
+            r'\+?1?\s*\(?(\d{3})\)?[\s.-]?(\d{3})[\s.-]?(\d{4})',
+            r'\+?\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{4}',
+            r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b'
+        ]
+        for pattern in phone_patterns:
+            match = re.search(pattern, self.text)
+            if match:
+                return match.group(0)
+        return ""
 
 if __name__ == '__main__':
     print("\n" + "="*50)
