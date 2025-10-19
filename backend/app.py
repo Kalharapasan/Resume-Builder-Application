@@ -42,6 +42,11 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 class ResumeParser:
+    def __init__(self, text):
+        self.text = text
+        self.lines = [line.strip() for line in text.split('\n') if line.strip()]
+        
+        
     
 
 
