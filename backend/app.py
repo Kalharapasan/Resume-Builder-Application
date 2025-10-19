@@ -81,6 +81,50 @@ class ResumeParser:
         match = re.search(location_pattern, self.text)
         return match.group(0) if match else ""
     
+    def extract_skills(self):
+        """Extract technical and soft skills"""
+        skills = []
+        
+        tech_skills = [
+            'Python', 'Java', 'JavaScript', 'TypeScript', 'React', 'Angular', 'Vue',
+            'Node.js', 'Express', 'Django', 'Flask', 'FastAPI', 'Spring Boot',
+            'SQL', 'MySQL', 'PostgreSQL', 'MongoDB', 'Redis', 'Elasticsearch',
+            'AWS', 'Azure', 'GCP', 'Docker', 'Kubernetes', 'Jenkins', 'Git',
+            'HTML', 'CSS', 'SCSS', 'Tailwind', 'Bootstrap', 'REST API', 'GraphQL',
+            'Machine Learning', 'AI', 'Data Science', 'TensorFlow', 'PyTorch',
+            'C++', 'C#', 'Ruby', 'PHP', 'Swift', 'Kotlin', 'Go', 'Rust',
+            'Agile', 'Scrum', 'DevOps', 'CI/CD', 'Microservices', 'Linux'
+        ]
+        
+        text_lower = self.text.lower()
+        skills_keywords = ['skills', 'technical skills', 'competencies', 'expertise', 'technologies']
+        
+        for keyword in skills_keywords:
+            idx = text_lower.find(keyword)
+            if idx != -1:
+                skills_section = self.text[idx:idx+500]
+                for skill in tech_skills:
+                    if re.search(r'\b' + re.escape(skill) + r'\b', skills_section, re.IGNORECASE):
+                        skills.append(skill)
+                break
+        
+        if not skills:
+            for skill in tech_skills[:15]:
+                if re.search(r'\b' + re.escape(skill) + r'\b', self.text, re.IGNORECASE):
+                    skills.append(skill)
+        
+        if nlp and len(skills) < 5:
+            doc = nlp(self.text[:1500])
+            for chunk in doc.noun_chunks:
+                chunk_text = chunk.text.strip()
+                if 2 <= len(chunk_text.split()) <= 3 and chunk_text[0].isupper():
+                    if chunk_text not in skills and len(skills) < 12:
+                        skills.append(chunk_text)
+        
+        skills = list(dict.fromkeys(skills))[:12]
+        return skills if skills else ["Communication", "Problem Solving", "Teamwork", "Leadership"]
+    
+    
 
 if __name__ == '__main__':
     print("\n" + "="*50)
