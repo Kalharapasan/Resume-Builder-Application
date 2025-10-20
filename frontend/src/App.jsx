@@ -12,7 +12,6 @@ export default function ResumeGenerator() {
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
   const [isEditing, setIsEditing] = useState(false);
-  const [downloadFormat, setDownloadFormat] = useState('pdf');
 
   const templates = [
     { id: 'modern', name: 'Modern', color: 'bg-gradient-to-br from-blue-600 to-purple-600', desc: 'Clean and contemporary' },
@@ -83,15 +82,6 @@ export default function ResumeGenerator() {
       ...prev,
       [field]: value
     }));
-  };
-
-  const handleSkillAdd = (skill) => {
-    if (skill && !editedData.skills.includes(skill)) {
-      setEditedData(prev => ({
-        ...prev,
-        skills: [...prev.skills, skill]
-      }));
-    }
   };
 
   const handleSkillRemove = (index) => {
