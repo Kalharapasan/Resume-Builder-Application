@@ -301,6 +301,29 @@ curl -X POST http://localhost:5000/api/upload \
 
 ---
 
-## 🎯 Sample Resume Format
-
-Create a test document with this structure:
+## 📊 Project Structure
+```
+resume-generator/
+│
+├── backend/
+│   ├── app.py                 # Main Flask application
+│   ├── requirements.txt       # Python dependencies
+│   ├── Dockerfile            # Docker configuration
+│   └── uploads/              # Temporary file storage
+│
+├── frontend/
+│   ├── public/
+│   │   └── index.html        # HTML template
+│   ├── src/
+│   │   ├── App.jsx          # Main React component
+│   │   ├── index.js         # React entry point
+│   │   └── index.css        # Global styles
+│   ├── package.json         # Node dependencies
+│   └── Dockerfile          # Docker configuration
+│
+├── docker-compose.yml      # Docker compose config
+├── .gitignore             # Git ignore rules
+├── setup.sh               # Linux/Mac setup script
+├── setup.bat              # Windows setup script
+└── README.md             # Documentation
+```
