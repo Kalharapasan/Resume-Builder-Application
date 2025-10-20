@@ -1,4 +1,6 @@
 # 🚀 AI Resume Generator 
+<img width="1366" height="626" alt="Capture" src="https://github.com/user-attachments/assets/6245d74e-ff3d-4ea9-be9c-3ba79fa3988e" />
+
 
 **Transform your Word documents into professional resumes with AI-powered parsing**
 
