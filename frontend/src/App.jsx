@@ -284,7 +284,7 @@ export default function ResumeGenerator() {
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-white mb-2 flex items-center justify-center gap-3">
             <Sparkles className="w-12 h-12 animate-pulse" />
-            AI Resume Generator v2.0
+            AI Resume Generator 
           </h1>
           <p className="text-purple-200 text-lg">Upload your document and create a professional resume in minutes</p>
         </div>
